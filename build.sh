@@ -9,10 +9,19 @@ echo "2. Compiling C sources..."
 gcc -c kernel.c -o kernel.o -m64 -ffreestanding -mno-red-zone -mcmodel=large -fno-pie
 # Compile fs.c
 gcc -c fs.c -o fs.o -m64 -ffreestanding -mno-red-zone -mcmodel=large -fno-pie
+# Compile fs.c
+gcc -c editor.c -o editor.o -m64 -ffreestanding -mno-red-zone -mcmodel=large -fno-pie
+# Compile fs.c
+gcc -c input.c -o input.o -m64 -ffreestanding -mno-red-zone -mcmodel=large -fno-pie
+# Compile fs.c
+gcc -c terminal.c -o terminal.o -m64 -ffreestanding -mno-red-zone -mcmodel=large -fno-pie
+# Compile fs.c
+gcc -c shell.c -o shell.o -m64 -ffreestanding -mno-red-zone -mcmodel=large -fno-pie
+
 
 echo "3. Linking..."
 # Link boot, kernel, AND fs together
-ld -n -o kernel.bin -T linker.ld boot.o kernel.o fs.o -z max-page-size=0x1000
+ld -n -o kernel.bin -T linker.ld boot.o kernel.o terminal.o shell.o fs.o editor.o input.o -z max-page-size=0x1000
 
 echo "4. ISO..."
 mkdir -p isodir/boot/grub
