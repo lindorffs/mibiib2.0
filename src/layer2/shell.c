@@ -130,6 +130,7 @@ void execute_command(char* cmd) {
 }
 
 void kentry(void) {
+	fs_init();
     char buffer[128];
     int idx = 0;
 	term_clear();
