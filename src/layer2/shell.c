@@ -129,11 +129,9 @@ void execute_command(char* cmd) {
     }
 }
 
-void kentry(void) {
-	fs_init();
+void shell_run(void) {
     char buffer[128];
     int idx = 0;
-	term_clear();
     shell_prompt();
 
     while (1) {

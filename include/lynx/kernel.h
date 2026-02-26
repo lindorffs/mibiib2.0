@@ -6,8 +6,10 @@
 
 #include "mem.h"
 #include "io.h"
-void kmain();
 
+extern void kentry(uint64_t mb_info_addr, uint64_t magic);
+
+void kmain(uint64_t mb_info_addr, uint64_t magic);
 
 void term_putc(char c);
 

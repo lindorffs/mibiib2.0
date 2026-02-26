@@ -23,6 +23,23 @@ void term_print(const char* str) {
     for (size_t i = 0; str[i]; i++) term_putc(str[i]);
 }
 
+void term_print_hex(uint64_t n) {
+    char* chars = "0123456789ABCDEF";
+    term_putc('0'); term_putc('x');
+    for (int i = 60; i >= 0; i -= 4) {
+        term_putc(chars[(n >> i) & 0xF]);
+    }
+    term_putc(' ');
+}
+
+void term_print_dec(uint32_t n) {
+    if (n == 0) { term_putc('0'); return; }
+    char buffer[32];
+    int i = 0;
+    while (n > 0) { buffer[i++] = (n % 10) + '0'; n /= 10; }
+    while (--i >= 0) term_putc(buffer[i]);
+}
+
 void term_clear() {
     for (int i = 0; i < WIDTH * HEIGHT; i++) vga_buffer[i] = 0x0F20;
     term_x = 0; term_y = 0;

@@ -1,4 +1,4 @@
-; boot.asm
+; boot.asm - Fixed for InitRD
 global start
 extern kmain
 
@@ -9,8 +9,6 @@ header_start:
     dd 0                         ; Architecture 0 (i386)
     dd header_end - header_start ; Header length
     dd 0x100000000 - (0xE85250D6 + 0 + (header_end - header_start)) ; Checksum
-
-    ; Required End Tag
     dw 0, 0
     dd 8
 header_end:
@@ -21,61 +19,63 @@ start:
     ; 1. Set Stack Pointer
     mov esp, stack_top
 
-    ; 2. Clear Page Tables (Crucial to prevent garbage data)
-    mov edi, page_table_l4
-    mov cr3, edi
-    xor eax, eax
-    mov ecx, 4096 * 3 ; Clear L4, L3, L2
-    rep stosd
-    mov edi, page_table_l4 ; Reset pointer
-
-    ; 3. Map P4 -> P3
+    ; 2. SAVE MULTIBOOT POINTER
+    ; GRUB puts the info pointer in EBX. 
+    ; We move it to ESI to keep it safe because 'rep stosd' below will destroy EDI.
+    mov esi, ebx 
+	mov ebp, eax
+	
+	; 3. LOAD CR3
+    ; We must tell the CPU where the top-level page table (L4) is.
+    mov eax, page_table_l4
+    mov cr3, eax
+	
+    ; 4. Map P4 -> P3
     mov eax, page_table_l3
     or eax, 0b11 ; Present | Writable
     mov [page_table_l4], eax
 
-    ; 4. Map P3 -> P2
+    ; 5. Map P3 -> P2
     mov eax, page_table_l2
     or eax, 0b11 ; Present | Writable
     mov [page_table_l3], eax
 
-    ; 5. Map P2 (Huge Pages) - Map first 1GB (512 entries * 2MB)
-    mov ecx, 0         ; Counter (0 to 511)
-    mov eax, 0         ; Physical Address starting at 0
-    or eax, 0b10000011 ; Present | Writable | Huge Page
-
+    ; 6. Map P2 (Huge Pages) - Map first 1GB
+    mov ecx, 0
+    mov eax, 0
+    or eax, 0b10000011 ; Present | Writable | Huge
 .map_loop:
-    mov [page_table_l2 + ecx * 8], eax ; Write entry
-    add eax, 0x200000                  ; Add 2MB to physical address
+    mov [page_table_l2 + ecx * 8], eax
+    add eax, 0x200000
     inc ecx
     cmp ecx, 512
     jne .map_loop
 
-    ; 6. Enable PAE
+    ; 7. Enable PAE
     mov eax, cr4
     or eax, 1 << 5
     mov cr4, eax
 
-    ; 7. Set Long Mode Bit (EFER)
+    ; 8. Long Mode Bit
     mov ecx, 0xC0000080
     rdmsr
     or eax, 1 << 8
     wrmsr
 
-    ; 8. Enable Paging
+    ; 9. Enable Paging
     mov eax, cr0
     or eax, 1 << 31
     mov cr0, eax
 
-    ; 9. Load 64-bit GDT
+    ; 10. Load 64-bit GDT
     lgdt [gdt64.pointer]
 
-    ; 10. Far Jump to 64-bit Code
+    ; 11. Jump to 64-bit Code
     jmp gdt64.code:long_mode_start
 
 bits 64
 long_mode_start:
-    ; 11. Clear Segment Registers
+    ; 12. Clear Segments
     mov ax, 0
     mov ss, ax
     mov ds, ax
@@ -83,18 +83,23 @@ long_mode_start:
     mov fs, ax
     mov gs, ax
 
-    ; 12. Jump to C Kernel
+    ; 13. RESTORE MULTIBOOT POINTER
+    ; The System V AMD64 ABI requires the first argument to be in RDI.
+    ; We saved the pointer in ESI back in 32-bit mode.
+    mov edi, esi
+	mov esi, ebp
+
+    ; 14. Call Kernel
     call kmain
 
-    ; 13. Safety Halt
     cli
     hlt
 
 section .rodata
 gdt64:
-    dq 0 ; Zero entry
+    dq 0
 .code: equ $ - gdt64
-    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; Code Segment
+    dq (1<<43) | (1<<44) | (1<<47) | (1<<53)
 .pointer:
     dw $ - gdt64 - 1
     dq gdt64
